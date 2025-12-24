@@ -1,0 +1,35 @@
+{
+  "2025-12-24": [
+    {
+      "task": "Work on brain dump tool",
+      "category": "work",
+      "subtasks": [
+        "Open your brain dump tool/document.",
+        "Review 2-3 existing items briefly.",
+        "Add 1-2 new thoughts or tasks that come to mind.",
+        "Categorize or tag one existing item."
+      ]
+    },
+    {
+      "task": "Prepare meal plan",
+      "category": "private",
+      "subtasks": [
+        "Check your fridge and pantry for existing ingredients (10 mins).",
+        "Browse 1-2 quick dinner ideas online for inspiration (15 mins).",
+        "Choose 3 simple main meals for the next 3-4 days (10 mins).",
+        "List the specific ingredients you'll need for those 3 meals (10 mins).",
+        "Add the missing ingredients to your grocery list."
+      ]
+    },
+    {
+      "task": "Prepare next vacation",
+      "category": "private",
+      "subtasks": [
+        "Open a new document or note for vacation planning.",
+        "Brainstorm 1-2 potential destinations OR dates (15 mins).",
+        "Do a quick 10-minute search for flights/accommodation prices for one option.",
+        "List 2-3 activities or sights you'd like to experience there (10 mins)."
+      ]
+    }
+  ]
+}

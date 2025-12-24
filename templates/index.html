@@ -80,6 +80,24 @@
         }
         .error { color: #e74c3c; text-align: center; margin-top: 10px; font-weight: bold; }
         .hidden { display: none; }
+
+        /* Kanban Styles */
+        .kanban-board { display: flex; gap: 20px; height: 60vh; margin-top: 20px; }
+        .kanban-column { 
+            flex: 1; 
+            background: #ebf5fb; 
+            padding: 15px; 
+            border-radius: 8px; 
+            display: flex; 
+            flex-direction: column; 
+            border: 2px solid transparent;
+        }
+        .kanban-column.drag-over { border-color: #3498db; background-color: #d6eaf8; }
+        .kanban-column h3 { text-align: center; margin-top: 0; color: #2980b9; }
+        .kanban-cards { flex: 1; overflow-y: auto; padding: 5px; }
+        .kanban-card { background: white; padding: 12px; margin-bottom: 10px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: grab; border-left: 4px solid #3498db; }
+        .kanban-card:active { cursor: grabbing; }
+        .kanban-card small { display: block; color: #7f8c8d; margin-bottom: 4px; font-size: 0.85em; }
     </style>
 </head>
 <body>
@@ -107,6 +125,23 @@
         <div id="selection-status">
             <h2>Selected: <span id="count">0</span>/3</h2>
             <button id="submitBtn" onclick="submitSelection()" disabled>Lock in Big 3 🔒</button>
+        </div>
+    </div>
+
+    <div id="kanban-view" class="hidden">
+        <div class="kanban-board">
+            <div class="kanban-column" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="removeHighlight(event)">
+                <h3>To Do</h3>
+                <div class="kanban-cards" id="todo-list"></div>
+            </div>
+            <div class="kanban-column" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="removeHighlight(event)">
+                <h3>In Progress</h3>
+                <div class="kanban-cards" id="inprogress-list"></div>
+            </div>
+            <div class="kanban-column" ondrop="drop(event)" ondragover="allowDrop(event)" ondragleave="removeHighlight(event)">
+                <h3>Done</h3>
+                <div class="kanban-cards" id="done-list"></div>
+            </div>
         </div>
     </div>
 
@@ -197,21 +232,82 @@
             btn.innerText = "Saving...";
             
             try {
+                // 1. Save Selection
                 const res = await fetch('/select-tasks', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tasks: selectedTasks })
                 });
                 
-                if (res.ok) {
-                    alert("Great job! Focus on these 3 tasks now.");
-                    location.reload(); // Reset for next day/session
-                }
+                if (!res.ok) throw new Error("Failed to save tasks");
+
+                // 2. Generate Subtasks
+                btn.innerText = "Breaking it down...";
+                const subRes = await fetch('/generate-subtasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks: selectedTasks })
+                });
+
+                if (!subRes.ok) throw new Error("Failed to generate subtasks");
+                const subtasksMap = await subRes.json();
+
+                // 3. Show Kanban
+                document.querySelector('.input-section').classList.add('hidden');
+                document.getElementById('results-area').classList.add('hidden');
+                document.querySelector('h1').innerText = "🚀 Action Mode";
+                document.getElementById('kanban-view').classList.remove('hidden');
+
+                renderKanban(subtasksMap);
+
             } catch (err) {
-                alert("Error saving tasks.");
+                alert("Error: " + err.message);
             } finally {
                 btn.innerText = "Lock in Big 3 🔒";
             }
+        }
+
+        function renderKanban(map) {
+            const todoList = document.getElementById('todo-list');
+            let cardId = 0;
+            
+            for (const [mainTask, subs] of Object.entries(map)) {
+                subs.forEach(sub => {
+                    const div = document.createElement('div');
+                    div.className = 'kanban-card';
+                    div.draggable = true;
+                    div.id = `card-${cardId++}`;
+                    div.ondragstart = drag;
+                    div.innerHTML = `<small>${mainTask}</small><strong>${sub}</strong>`;
+                    todoList.appendChild(div);
+                });
+            }
+        }
+
+        // Drag and Drop Logic
+        function allowDrop(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.add('drag-over');
+        }
+
+        function removeHighlight(ev) {
+            ev.currentTarget.classList.remove('drag-over');
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            ev.currentTarget.classList.remove('drag-over');
+            const data = ev.dataTransfer.getData("text");
+            const card = document.getElementById(data);
+            
+            // Find the .kanban-cards container within the dropped column
+            const column = ev.currentTarget;
+            const list = column.querySelector('.kanban-cards');
+            list.appendChild(card);
         }
     </script>
 </body>
