@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADHD Task Picker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        
+        .input-section { margin-bottom: 30px; }
+        
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+        .columns {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .column {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .column h3 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .task-item:hover { background-color: #e9ecef; }
+        .task-item input { margin-right: 10px; transform: scale(1.2); }
+        .task-item label { cursor: pointer; flex: 1; }
+
+        #selection-status {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: #e8f6f3;
+            border-radius: 8px;
+            border: 1px solid #d1f2eb;
+        }
+        .error { color: #e74c3c; text-align: center; margin-top: 10px; font-weight: bold; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>🧠 Brain Dump to Big 3</h1>
+
+    <div class="input-section">
+        <textarea id="braindump" placeholder="Dump everything on your mind here... (e.g., 'Need to email boss, buy milk, fix the bug in api, call mom, schedule dentist')"></textarea>
+        <button id="suggestBtn" onclick="getSuggestions()">✨ Organize My Chaos</button>
+        <div id="error-msg" class="error"></div>
+    </div>
+
+    <div id="results-area" class="hidden">
+        <div class="columns">
+            <div class="column">
+                <h3>💼 Work</h3>
+                <div id="work-list"></div>
+            </div>
+            <div class="column">
+                <h3>🏠 Private</h3>
+                <div id="private-list"></div>
+            </div>
+        </div>
+
+        <div id="selection-status">
+            <h2>Selected: <span id="count">0</span>/3</h2>
+            <button id="submitBtn" onclick="submitSelection()" disabled>Lock in Big 3 🔒</button>
+        </div>
+    </div>
+
+    <script>
+        let selectedTasks = [];
+
+        async function getSuggestions() {
+            const text = document.getElementById('braindump').value;
+            const btn = document.getElementById('suggestBtn');
+            const errorDiv = document.getElementById('error-msg');
+            
+            if (!text.trim()) return;
+
+            btn.disabled = true;
+            btn.innerText = "Thinking...";
+            errorDiv.innerText = "";
+
+            try {
+                const res = await fetch('/suggest-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ braindump: text })
+                });
+
+                if (!res.ok) throw new Error('Failed to fetch suggestions');
+                
+                const data = await res.json();
+                renderTasks(data);
+                document.getElementById('results-area').classList.remove('hidden');
+            } catch (err) {
+                errorDiv.innerText = "Oops! Something went wrong. Try again.";
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "✨ Organize My Chaos";
+            }
+        }
+
+        function renderTasks(data) {
+            const workContainer = document.getElementById('work-list');
+            const privateContainer = document.getElementById('private-list');
+            
+            workContainer.innerHTML = data.work.map(t => createTaskHTML(t, 'work')).join('');
+            privateContainer.innerHTML = data.private.map(t => createTaskHTML(t, 'private')).join('');
+            
+            // Reset selection
+            selectedTasks = [];
+            updateCount();
+        }
+
+        function createTaskHTML(taskText, category) {
+            return `
+                <div class="task-item">
+                    <input type="checkbox" value="${taskText}" data-category="${category}" onchange="toggleTask(this)">
+                    <label onclick="this.previousElementSibling.click()">${taskText}</label>
+                </div>
+            `;
+        }
+
+        function toggleTask(checkbox) {
+            const task = checkbox.value;
+            const category = checkbox.dataset.category;
+
+            if (checkbox.checked) {
+                if (selectedTasks.length >= 3) {
+                    checkbox.checked = false;
+                    alert("Whoa! Only 3 tasks allowed. Keep it manageable.");
+                    return;
+                }
+                selectedTasks.push({ task, category });
+            } else {
+                selectedTasks = selectedTasks.filter(t => t.task !== task);
+            }
+            updateCount();
+        }
+
+        function updateCount() {
+            const count = selectedTasks.length;
+            document.getElementById('count').innerText = count;
+            const submitBtn = document.getElementById('submitBtn');
+            
+            // Enable submit only if at least 1 task is selected
+            submitBtn.disabled = count === 0;
+        }
+
+        async function submitSelection() {
+            const btn = document.getElementById('submitBtn');
+            btn.innerText = "Saving...";
+            
+            try {
+                const res = await fetch('/select-tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tasks: selectedTasks })
+                });
+                
+                if (res.ok) {
+                    alert("Great job! Focus on these 3 tasks now.");
+                    location.reload(); // Reset for next day/session
+                }
+            } catch (err) {
+                alert("Error saving tasks.");
+            } finally {
+                btn.innerText = "Lock in Big 3 🔒";
+            }
+        }
+    </script>
+</body>
+</html>
