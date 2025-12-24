@@ -1,10 +1,15 @@
 import os
 import json
+from datetime import date
 import flask
-from flask import request, jsonify
+from flask import request, jsonify, render_template
 from google import genai
 
 app = flask.Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
 
 @app.route('/suggest-tasks', methods=['POST'])
 def suggest_tasks():
@@ -36,6 +41,29 @@ def suggest_tasks():
         return jsonify(json.loads(response.text))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/select-tasks', methods=['POST'])
+def select_tasks():
+    data = request.get_json()
+    tasks = data.get('tasks', [])
+    today = date.today().isoformat()
+    
+    filename = 'tasks.json'
+    if os.path.exists(filename):
+        with open(filename, 'r') as f:
+            try:
+                saved_data = json.load(f)
+            except json.JSONDecodeError:
+                saved_data = {}
+    else:
+        saved_data = {}
+
+    saved_data[today] = tasks
+    
+    with open(filename, 'w') as f:
+        json.dump(saved_data, f, indent=2)
+
+    return jsonify({"status": "success"})
 
 if __name__ == '__main__':
     app.run(debug=True, port=45000)
