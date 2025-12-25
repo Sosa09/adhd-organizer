@@ -1,0 +1,29 @@
+name: Build and push image to ACR
+
+on:
+  release:
+    types: [published]
+
+env:
+  ACR_NAME: adhdorganizeracr
+  IMAGE_NAME: adhd-organizer
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to ACR
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push image
+        run: |
+          TAG=${{ github.ref_name }}  # e.g. v0.1.0
+          docker build -t $ACR_NAME.azurecr.io/$IMAGE_NAME:$TAG .
+          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:$TAG
