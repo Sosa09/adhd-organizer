@@ -1,0 +1,9 @@
+services:
+  app:
+    build: .
+    ports:
+      - "5001:45000"
+    env_file:
+      - .env
+    volumes:
+      - ./templates:/app/templates
